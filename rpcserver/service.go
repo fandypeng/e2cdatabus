@@ -9,6 +9,7 @@ import (
 	pb "github.com/fandypeng/e2cdatabus/proto"
 	"github.com/go-redis/redis"
 	"github.com/jmoiron/sqlx"
+	"regexp"
 	"strconv"
 	"time"
 )
@@ -98,6 +99,11 @@ func (s *Service) GetConfig(ctx context.Context, req *pb.GetConfigReq) (resp *pb
 		}
 		res := make([]interface{}, 0)
 		rows, connErr := s.db.Unsafe().Query("select * from " + req.Name)
+		reg, _ := regexp.Compile(`Table.*?doesn't exist`)
+		if connErr != nil && reg.Match([]byte(connErr.Error())) {
+			err = nil
+			return
+		}
 		if connErr == nil {
 			cols, _ := rows.Columns()
 			for rows.Next() {

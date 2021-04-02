@@ -23,8 +23,8 @@ const (
 func TestMain(m *testing.M) {
 	go func() {
 		svs := rpcserver.NewService()
-		//svs.SetMyqlConnect(testMysqlDsn)
-		svs.SetRedisConnect(testRedisAddr, testRedisPwd)
+		svs.SetMyqlConnect(testMysqlDsn)
+		//svs.SetRedisConnect(testRedisAddr, testRedisPwd)
 		err := rpcserver.Start(rpcserver.Conf{
 			Port:      serverPort,
 			AppKey:    testAppKey,
@@ -63,8 +63,14 @@ func TestUpdateConfig(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	tableName := "item_list"
+	getReq := &proto.GetConfigReq{Name: tableName}
+	getResp, err := rc.GetConfig(context.TODO(), getReq)
+	if err != nil {
+		t.Fatal(err)
+	}
 	updateReq := &proto.UpdateConfigReq{
-		Name: "item_list",
+		Name: tableName,
 		Head: &proto.TableHead{
 			Fields: []string{"sid", "type", "name", "event"},
 			Types:  []string{"int", "int", "string", "string"},
@@ -82,8 +88,8 @@ func TestUpdateConfig(t *testing.T) {
 	}
 	t.Logf("TestUpdateConfig succeed, resp: %v", resp)
 
-	getReq := &proto.GetConfigReq{Name: updateReq.Name}
-	getResp, err := rc.GetConfig(context.TODO(), getReq)
+	getReq = &proto.GetConfigReq{Name: updateReq.Name}
+	getResp, err = rc.GetConfig(context.TODO(), getReq)
 	if err != nil {
 		t.Fatal(err)
 	}
