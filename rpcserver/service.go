@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	pb "github.com/fandypeng/e2cdatabus/proto"
 	"github.com/go-redis/redis"
 	"github.com/jmoiron/sqlx"
@@ -53,7 +52,6 @@ func (s *Service) SetMyqlConnect(dsn string) error {
 }
 
 func (s *Service) UpdateConfig(ctx context.Context, req *pb.UpdateConfigReq) (resp *pb.UpdateConfigResp, err error) {
-	fmt.Println("update config: ", req.Name)
 	resp = &pb.UpdateConfigResp{
 		Status: 0,
 		ErrMsg: "",
@@ -151,7 +149,6 @@ func (s *Service) GetConfig(ctx context.Context, req *pb.GetConfigReq) (resp *pb
 }
 
 func (s *Service) SayHello(ctx context.Context, req *pb.SayHelloReq) (resp *pb.SayHelloResp, err error) {
-	fmt.Println("client say ", req.Greet)
 	resp = &pb.SayHelloResp{Response: "server response to: " + req.Greet}
 	return
 }
