@@ -169,7 +169,7 @@ func (s *Service) exportTableToMysql(ctx context.Context, db *sqlx.DB, formatInf
 		err = tx.Commit()
 	}
 	if err != nil {
-		err = tx.Rollback()
+		tx.Rollback()
 		return
 	}
 	return
