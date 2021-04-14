@@ -8,7 +8,10 @@ import (
 	"google.golang.org/grpc"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 )
 
 type Conf struct {
@@ -37,9 +40,31 @@ func Start(conf Conf, service pb.DatabusServer) error {
 	opt = append(opt, grpc.UnaryInterceptor(authService.AccessControl()))
 	s := grpc.NewServer(opt...)
 	pb.RegisterDatabusServer(s, service)
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-		return err
-	}
+	go func() {
+		log.Println("e2cdatabus started")
+		if err := s.Serve(lis); err != nil {
+			log.Fatalf("failed to serve: %v", err)
+		}
+	}()
+	singleHandler(s)
 	return nil
+}
+
+func singleHandler(svr *grpc.Server) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT, syscall.SIGUSR2)
+	for {
+		s := <-c
+		log.Printf("get a signal %s", s.String())
+		switch s {
+		case syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT, syscall.SIGUSR2:
+			svr.GracefulStop()
+			log.Println("e2cdatabus exit")
+			return
+		case syscall.SIGHUP:
+			return
+		default:
+			return
+		}
+	}
 }
