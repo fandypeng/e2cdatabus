@@ -143,6 +143,9 @@ func (s *Service) GetConfig(ctx context.Context, req *pb.GetConfigReq) (resp *pb
 		}
 		cmd := s.redis.Get(req.Name)
 		err = cmd.Err()
+		if err == redis.Nil {
+			err = nil
+		}
 		resp.Content = cmd.Val()
 	}
 	return
