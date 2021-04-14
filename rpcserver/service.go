@@ -184,7 +184,8 @@ func (s *Service) createTable(tx *sql.Tx, formatInfo *pb.UpdateConfigReq, tableN
 		}
 		createSql += "`" + row + "` " + fieldTy + " NOT NULL COMMENT '" + formatInfo.Head.Descs[index] + "',"
 	}
-	createSql += "PRIMARY KEY (`sid`) ) DEFAULT CHARSET=utf8mb4"
+	firstField := formatInfo.Head.Fields[0]
+	createSql += "PRIMARY KEY (`" + firstField + "`) ) DEFAULT CHARSET=utf8mb4"
 	_, err = tx.Exec(createSql)
 	return
 }
