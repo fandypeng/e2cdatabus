@@ -61,19 +61,10 @@ func (s *Service) UpdateConfig(ctx context.Context, req *pb.UpdateConfigReq) (re
 		if err != nil {
 			return
 		}
-		testTableName := req.GetName() + "_" + strconv.Itoa(int(time.Now().Unix()))
-		err = s.exportTableToMysql(ctx, s.db, req, testTableName)
+		tempTableName := req.Name + "_" + strconv.Itoa(int(time.Now().Unix()))
+		err = s.exportTableToMysql(ctx, s.db, req, tempTableName)
 		if err == nil {
-			err = s.exportTableToMysql(ctx, s.db, req, req.GetName())
-		}
-		if err == nil {
-			tx, txerr := s.db.Begin()
-			if txerr != nil {
-				err = txerr
-				return
-			}
-			s.dropTable(tx, testTableName)
-			err = tx.Commit()
+			err = s.renameTable(ctx, s.db, req.Name, tempTableName)
 		}
 		if err != nil {
 			return
@@ -156,17 +147,17 @@ func (s *Service) SayHello(ctx context.Context, req *pb.SayHelloReq) (resp *pb.S
 	return
 }
 
-func (s *Service) exportTableToMysql(ctx context.Context, db *sqlx.DB, formatInfo *pb.UpdateConfigReq, tableName string) (err error) {
+func (s *Service) exportTableToMysql(ctx context.Context, db *sqlx.DB, upReq *pb.UpdateConfigReq, tableName string) (err error) {
 	tx, err := db.Begin()
 	if err != nil {
 		return
 	}
-	err = s.dropTable(tx, tableName)
+	err = s.dropTable(db, tableName)
 	if err == nil {
-		err = s.createTable(tx, formatInfo, tableName)
+		err = s.createTable(tx, upReq, tableName)
 	}
 	if err == nil {
-		err = s.insertToTable(tx, formatInfo, tableName)
+		err = s.insertToTable(tx, upReq, tableName)
 	}
 	if err == nil {
 		err = tx.Commit()
@@ -178,39 +169,51 @@ func (s *Service) exportTableToMysql(ctx context.Context, db *sqlx.DB, formatInf
 	return
 }
 
-func (s *Service) createTable(tx *sql.Tx, formatInfo *pb.UpdateConfigReq, tableName string) (err error) {
+func (s *Service) renameTable(ctx context.Context, db *sqlx.DB, tableName, tmpTableName string) (err error) {
+	bakTableName := tableName + "_bak"
+	_, err = db.Exec("alter table " + tableName + " rename to " + bakTableName)
+	if err == nil {
+		_, err = db.Exec("alter table " + tmpTableName + " rename to " + tableName)
+	}
+	if err == nil {
+		err = s.dropTable(db, bakTableName)
+	}
+	return
+}
+
+func (s *Service) createTable(tx *sql.Tx, upReq *pb.UpdateConfigReq, tableName string) (err error) {
 	createSql := "CREATE TABLE `" + tableName + "` ("
-	for index, row := range formatInfo.Head.Fields {
+	for index, row := range upReq.Head.Fields {
 		fieldTy := "bigint(20)"
-		if formatInfo.Head.Types[index] == "string" {
+		if upReq.Head.Types[index] == "string" {
 			fieldTy = "text"
 		}
-		createSql += "`" + row + "` " + fieldTy + " NOT NULL COMMENT '" + formatInfo.Head.Descs[index] + "',"
+		createSql += "`" + row + "` " + fieldTy + " NOT NULL COMMENT '" + upReq.Head.Descs[index] + "',"
 	}
-	firstField := formatInfo.Head.Fields[0]
+	firstField := upReq.Head.Fields[0]
 	createSql += "PRIMARY KEY (`" + firstField + "`) ) DEFAULT CHARSET=utf8mb4"
 	_, err = tx.Exec(createSql)
 	return
 }
 
-func (s *Service) insertToTable(tx *sql.Tx, formatInfo *pb.UpdateConfigReq, tableName string) (err error) {
+func (s *Service) insertToTable(tx *sql.Tx, upReq *pb.UpdateConfigReq, tableName string) (err error) {
 	insertSql := "INSERT INTO `" + tableName + "` ("
-	for index, field := range formatInfo.Head.Fields {
+	for index, field := range upReq.Head.Fields {
 		insertSql += "`" + field + "`"
-		if index < len(formatInfo.Head.Fields)-1 {
+		if index < len(upReq.Head.Fields)-1 {
 			insertSql += ","
 		} else {
 			insertSql += ")"
 		}
 	}
 	content := make([]map[string]interface{}, 0)
-	err = json.Unmarshal([]byte(formatInfo.Content), &content)
+	err = json.Unmarshal([]byte(upReq.Content), &content)
 	if err != nil {
 		return
 	}
 	insertSql += "VALUES("
 	for rowIndex, row := range content {
-		for index, field := range formatInfo.Head.Fields {
+		for index, field := range upReq.Head.Fields {
 			var val = ""
 			if index < len(row) {
 				if tmp, ok := row[field]; ok {
@@ -222,7 +225,7 @@ func (s *Service) insertToTable(tx *sql.Tx, formatInfo *pb.UpdateConfigReq, tabl
 				}
 			}
 			insertSql += "'" + val + "'"
-			if index < len(formatInfo.Head.Fields)-1 {
+			if index < len(upReq.Head.Fields)-1 {
 				insertSql += ","
 			} else {
 				insertSql += ")"
@@ -236,9 +239,9 @@ func (s *Service) insertToTable(tx *sql.Tx, formatInfo *pb.UpdateConfigReq, tabl
 	return
 }
 
-func (s *Service) dropTable(tx *sql.Tx, tableName string) (err error) {
+func (s *Service) dropTable(db *sqlx.DB, tableName string) (err error) {
 	dropSql := "drop table if exists " + tableName
-	_, err = tx.Exec(dropSql)
+	_, err = db.Exec(dropSql)
 	if err != nil {
 		return err
 	}
