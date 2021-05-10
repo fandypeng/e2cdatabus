@@ -20,7 +20,7 @@ type Conf struct {
 	AppSecret string
 }
 
-func Start(conf Conf, service pb.DatabusServer) error {
+func Start(conf Conf, service pb.DatabusServer, handlers ...grpc.UnaryServerInterceptor) error {
 	if conf.Port == 0 {
 		conf.Port = 10000
 	}
@@ -37,7 +37,9 @@ func Start(conf Conf, service pb.DatabusServer) error {
 	}
 	opt := make([]grpc.ServerOption, 0)
 	authService := auth.New(conf.AppKey, conf.AppSecret)
-	opt = append(opt, grpc.UnaryInterceptor(authService.AccessControl()))
+	authService.Use(authService.AccessControl())
+	authService.Use(handlers...)
+	opt = append(opt, grpc.UnaryInterceptor(authService.Interceptor))
 	s := grpc.NewServer(opt...)
 	pb.RegisterDatabusServer(s, service)
 	go func() {

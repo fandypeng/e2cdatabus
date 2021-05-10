@@ -2,8 +2,13 @@ package rpcclient
 
 import (
 	"context"
+	"fmt"
 	"github.com/fandypeng/e2cdatabus/proto"
 	"github.com/fandypeng/e2cdatabus/rpcserver"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"testing"
 	"time"
 )
@@ -29,13 +34,26 @@ func TestMain(m *testing.M) {
 			Port:      serverPort,
 			AppKey:    testAppKey,
 			AppSecret: testAppSecret,
-		}, svs)
+		}, svs, Middleware())
 		if err != nil {
 			panic(err)
 		}
 	}()
 	time.Sleep(time.Second * 1)
 	m.Run()
+}
+
+func Middleware() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
+		md, ok := metadata.FromIncomingContext(ctx)
+		if !ok {
+			err = status.Errorf(codes.Unauthenticated, "no auth token")
+			return
+		}
+		fmt.Println(md)
+		fmt.Println(req)
+		return handler(ctx, req)
+	}
 }
 
 func TestNewRpcClient(t *testing.T) {
@@ -96,4 +114,5 @@ func TestUpdateConfig(t *testing.T) {
 	if getResp.Content != updateReq.Content {
 		t.Fatalf("content is diffrent, %v", getResp.Content)
 	}
+	select {}
 }
