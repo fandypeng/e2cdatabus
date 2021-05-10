@@ -52,12 +52,12 @@ func Start(conf Conf, service pb.DatabusServer) error {
 
 func singleHandler(svr *grpc.Server) {
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT, syscall.SIGUSR2)
+	signal.Notify(c, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGINT, syscall.SIGUSR2)
 	for {
 		s := <-c
 		log.Printf("get a signal %s", s.String())
 		switch s {
-		case syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT, syscall.SIGUSR2:
+		case syscall.SIGQUIT, syscall.SIGINT, syscall.SIGUSR2:
 			svr.GracefulStop()
 			log.Println("e2cdatabus exit")
 			return

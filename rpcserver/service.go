@@ -171,7 +171,11 @@ func (s *Service) exportTableToMysql(ctx context.Context, db *sqlx.DB, upReq *pb
 
 func (s *Service) renameTable(ctx context.Context, db *sqlx.DB, tableName, tmpTableName string) (err error) {
 	bakTableName := tableName + "_bak"
-	_, err = db.Exec("alter table " + tableName + " rename to " + bakTableName)
+	row := db.QueryRow("show tables like '" + tableName + "'")
+	var scanTableName string
+	if scanErr := row.Scan(&scanTableName); scanErr == nil && len(scanTableName) > 0 {
+		_, err = db.Exec("alter table " + tableName + " rename to " + bakTableName)
+	}
 	if err == nil {
 		_, err = db.Exec("alter table " + tmpTableName + " rename to " + tableName)
 	}
