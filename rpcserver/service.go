@@ -23,6 +23,10 @@ func NewService() *Service {
 	return &Service{}
 }
 
+const (
+	redisPubsubChannel = "config_refresh"
+)
+
 // SetRedisConnect setup redis client
 // addr example: "127.0.0.1:6379"
 func (s *Service) SetRedisConnect(addr, password string) error {
@@ -75,6 +79,9 @@ func (s *Service) UpdateConfig(ctx context.Context, req *pb.UpdateConfigReq) (re
 			return
 		}
 		err = s.redis.Set(req.Name, req.Content, 0).Err()
+		if err == nil {
+			s.redis.Publish(redisPubsubChannel, req.Name)
+		}
 	}
 	return
 }
